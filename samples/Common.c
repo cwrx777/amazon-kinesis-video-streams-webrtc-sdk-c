@@ -751,6 +751,10 @@ STATUS createSampleConfiguration(PCHAR channelName, SIGNALING_CHANNEL_ROLE_TYPE 
     pSampleConfiguration->mediaSenderTid = INVALID_TID_VALUE;
     pSampleConfiguration->signalingClientHandle = INVALID_SIGNALING_CLIENT_HANDLE_VALUE;
     pSampleConfiguration->sampleConfigurationObjLock = MUTEX_CREATE(TRUE);
+
+    //CW
+    pSampleConfiguration->sampleDataChannelListReadLock = MUTEX_CREATE(FALSE);
+
     pSampleConfiguration->cvar = CVAR_CREATE();
     pSampleConfiguration->streamingSessionListReadLock = MUTEX_CREATE(FALSE);
     pSampleConfiguration->signalingSendMessageLock = MUTEX_CREATE(FALSE);

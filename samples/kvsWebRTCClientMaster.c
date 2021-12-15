@@ -47,9 +47,9 @@ INT32 main(INT32 argc, CHAR* argv[])
 
     // Set the audio and video handlers
     pSampleConfiguration->audioSource = sendAudioPackets;
-    pSampleConfiguration->videoSource = sendVideoPackets;
+    pSampleConfiguration->videoSource = CW_sendVideoPackets;
     pSampleConfiguration->receiveAudioVideoSource = sampleReceiveVideoFrame;
-    pSampleConfiguration->onDataChannel = onDataChannel;
+    pSampleConfiguration->onDataChannel = CW_onDataChannel;
     pSampleConfiguration->mediaType = SAMPLE_STREAMING_AUDIO_VIDEO;
     printf("[KVS Master] Finished setting audio and video handlers\n");
 
@@ -275,6 +275,187 @@ CleanUp:
     return (PVOID) (ULONG_PTR) retStatus;
 }
 
+
+//send dummy data
+PBYTE buffer =  NULL;
+PVOID CW_sendVideoPackets(PVOID args)
+{
+    printf("before set startimein buffer %lu\n", startTime);
+    
+    STATUS retStatus = STATUS_SUCCESS;
+    PSampleConfiguration pSampleConfiguration = (PSampleConfiguration) args;
+    RtcEncoderStats encoderStats;
+    Frame frame;
+    UINT32 fileIndex = 0;
+    UINT32 frameSize = 640 * 480;
+    CHAR filePath[MAX_PATH_LEN + 1];
+    STATUS status;
+    UINT32 i;
+    UINT64 startTime, lastFrameTime, elapsed;
+    MEMSET(&encoderStats, 0x00, SIZEOF(RtcEncoderStats));
+
+    PSampleStreamingSession pSampleStreamingSession = NULL;
+    
+    PRtcPeerConnection pPeerConnection = NULL;
+    PRtcDataChannel pDataChannel = NULL;
+
+
+
+    frame.presentationTs = 0;
+    startTime = GETTIME();
+    lastFrameTime = startTime;
+
+
+
+    
+
+    while (!ATOMIC_LOAD_BOOL(&pSampleConfiguration->appTerminateFlag)) {
+
+
+        // if (frameSize > pSampleConfiguration->videoBufferSize) {
+
+        //     printf("frameSize = %d, videoBufferSize = %d\n", frameSize, pSampleConfiguration->videoBufferSize);
+
+        //     pSampleConfiguration->pVideoFrameBuffer = (PBYTE) MEMREALLOC(pSampleConfiguration->pVideoFrameBuffer, frameSize);
+        //     if (pSampleConfiguration->pVideoFrameBuffer == NULL) {
+        //         printf("[KVS Master] Video frame Buffer reallocation failed...%s (code %d)\n", strerror(errno), errno);
+        //         printf("[KVS Master] MEMREALLOC(): operation returned status code: 0x%08x \n", STATUS_NOT_ENOUGH_MEMORY);
+        //         goto CleanUp;
+        //     }
+
+        //     pSampleConfiguration->videoBufferSize = frameSize;
+        // }
+
+
+
+        
+        // frame.frameData = pSampleConfiguration->pVideoFrameBuffer;
+        // frame.size = frameSize;
+
+        // //populate buffer
+        // //populate first X bytes of buffer with current time
+        // frame.frameData[0]= startTime  >> (8*0);
+        // frame.frameData[1]= startTime  >> (8*1);
+        // frame.frameData[2]= startTime  >> (8*2);
+        // frame.frameData[3]= startTime  >> (8*3);
+        // frame.frameData[4]= startTime  >> (8*4);
+        // frame.frameData[5]= startTime  >> (8*5);
+        // frame.frameData[6]= startTime  >> (8*6);
+        // frame.frameData[7]= startTime  >> (8*7);
+        // frame.frameData[8] = 0xAA;
+        // frame.frameData[9] = 0xBB;
+        // frame.frameData[10] = 0xCC;
+        // frame.frameData[11] = 0xDD;
+        // frame.frameData[12] = 01;
+        // frame.frameData[13] = 23;
+        // frame.frameData[14] = 45;
+        // frame.frameData[15] = 67;
+        
+        // for (i = 16 ; i<frameSize; i++)
+        // {
+        //     frame.frameData[i] = 0x88;
+        // }
+        
+        
+        
+
+        // based on bitrate of samples/h264SampleFrames/frame-*
+        encoderStats.width = 640;
+        encoderStats.height = 480;
+        encoderStats.targetBitrate = 262000;
+        frame.presentationTs += SAMPLE_VIDEO_FRAME_DURATION;
+
+        long startTime = 0;
+        long frameSize = 200000;
+        long msgTimestampSize = 8+8;
+
+
+        //printf("before mem alloc\n");
+
+        buffer = (PBYTE) MEMALLOC(msgTimestampSize + frameSize);
+        CHK(buffer != NULL, STATUS_NOT_ENOUGH_MEMORY);
+
+        //printf("after mem alloc\n");
+        
+        buffer[8] = 0xAA;
+        buffer[9] = 0xBB;
+        buffer[10] = 0xCC;
+        buffer[11] = 0xDD;
+        buffer[12] = 01;
+        buffer[13] = 23;
+        buffer[14] = 45;
+        buffer[15] = 67;
+        //printf("after buffer 8 chars\n");
+
+        
+        for (i = 16 ; i<(frameSize+msgTimestampSize); i++)
+        {
+             buffer[i] = 0x88;
+        }
+        //printf("after remaining\n");
+
+
+        MUTEX_LOCK(pSampleConfiguration->sampleDataChannelListReadLock);
+        for (i = 0; i < pSampleConfiguration->dataChannelCount; ++i) {
+
+            pDataChannel = pSampleConfiguration->sampleDataChannelList[i];
+
+
+            startTime = GETTIME();
+
+            printf("before set startimein buffer %lu\n", startTime);
+            buffer[0]= startTime  >> (8*0);
+            buffer[1]= startTime  >> (8*1);
+            buffer[2]= startTime  >> (8*2);
+            buffer[3]= startTime  >> (8*3);
+            buffer[4]= startTime  >> (8*4);
+            buffer[5]= startTime  >> (8*5);
+            buffer[6]= startTime  >> (8*6);
+            buffer[7]= startTime  >> (8*7);
+            //printf("after set startimein buffer\n");
+
+        
+            //printf("before dataChannelSend\n");
+       
+            status = dataChannelSend(pDataChannel, TRUE, (PBYTE) buffer, frameSize+msgTimestampSize);
+           // printf("after dataChannelSend\n");
+
+
+            
+            //CW dont care about encoder. we are streaming raw data !!!!!!!!!
+            // encoderStats.encodeTimeMsec = 4; // update encode time to an arbitrary number to demonstrate stats update
+            // updateEncoderStats(pSampleConfiguration->sampleStreamingSessionList[i]->pVideoRtcRtpTransceiver, &encoderStats);
+            
+            
+            if (status != STATUS_SRTP_NOT_READY_YET) {
+                if (status != STATUS_SUCCESS) {
+#ifdef VERBOSE
+                    printf("[KVS Master] Video CW - writeFrame() failed with 0x%08x\n", status);
+#endif
+                }
+            }
+        }
+        MUTEX_UNLOCK(pSampleConfiguration->sampleDataChannelListReadLock);
+
+        // Adjust sleep in the case the sleep itself and writeFrame take longer than expected. Since sleep makes sure that the thread
+        // will be paused at least until the given amount, we can assume that there's no too early frame scenario.
+        // Also, it's very unlikely to have a delay greater than SAMPLE_VIDEO_FRAME_DURATION, so the logic assumes that this is always
+        // true for simplicity.
+        elapsed = lastFrameTime - startTime;
+        THREAD_SLEEP(SAMPLE_VIDEO_FRAME_DURATION - elapsed % SAMPLE_VIDEO_FRAME_DURATION);
+        lastFrameTime = GETTIME();
+    }
+
+CleanUp:
+
+    MEMFREE(buffer);
+
+    CHK_LOG_ERR(retStatus);
+
+    return (PVOID) (ULONG_PTR) retStatus;
+}
+
+
 PVOID sendAudioPackets(PVOID args)
 {
     STATUS retStatus = STATUS_SUCCESS;
@@ -361,4 +542,13 @@ PVOID sampleReceiveVideoFrame(PVOID args)
 CleanUp:
 
     return (PVOID) (ULONG_PTR) retStatus;
+}
+
+VOID CW_onDataChannel(UINT64 uint64VarName , PRtcDataChannel pRtcDataChannelVarName)
+{
+    printf("[KVS Master] onDataChannel %s\n", pRtcDataChannelVarName->name);
+
+    gSampleConfiguration->sampleDataChannelList[gSampleConfiguration->dataChannelCount++] = pRtcDataChannelVarName;
+    printf("[KVS Master] new data channel has been added into the list\n");
+
 }
