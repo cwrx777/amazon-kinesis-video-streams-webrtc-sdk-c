@@ -120,6 +120,13 @@ typedef struct {
 
     UINT32 pregenerateCertTimerId;
     PStackQueue pregeneratedCertificates; // Max MAX_RTCCONFIGURATION_CERTIFICATES certificates
+
+    //CW new
+    PRtcDataChannel sampleDataChannelList[DEFAULT_MAX_CONCURRENT_STREAMING_SESSION];
+    UINT32 dataChannelCount;
+    MUTEX sampleDataChannelListReadLock;
+    startRoutine cwTest123;
+
 } SampleConfiguration, *PSampleConfiguration;
 
 typedef struct {
@@ -195,7 +202,9 @@ STATUS removeExpiredMessageQueues(PStackQueue);
 STATUS getPendingMessageQueueForHash(PStackQueue, UINT64, BOOL, PPendingMessageQueue*);
 BOOL sampleFilterNetworkInterfaces(UINT64, PCHAR);
 
-
+VOID CW_sampleFrameHandler(UINT64, PFrame);
+PVOID CW_sendVideoPackets(PVOID);
+PVOID cwTest123(PVOID args);
 VOID CW_onDataChannel(UINT64, PRtcDataChannel);
 
 #ifdef __cplusplus
