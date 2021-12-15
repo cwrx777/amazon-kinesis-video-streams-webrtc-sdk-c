@@ -106,11 +106,6 @@ typedef struct {
     UINT32 streamingSessionCount;
     MUTEX streamingSessionListReadLock;
 
-
-      //CW
-    PRtcDataChannel sampleDataChannelList[DEFAULT_MAX_CONCURRENT_STREAMING_SESSION];
-    UINT32 dataChannelCount;
-
     UINT32 iceUriCount;
     SignalingClientCallbacks signalingClientCallbacks;
     SignalingClientInfo clientInfo;
