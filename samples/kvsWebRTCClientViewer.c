@@ -2,6 +2,96 @@
 
 extern PSampleConfiguration gSampleConfiguration;
 
+// onMessage callback for a message received by the viewer on a data channel
+VOID dataChannelOnMessageCallback(UINT64 customData, PRtcDataChannel pDataChannel, BOOL isBinary, PBYTE pMessage, UINT32 pMessageLen)
+{
+    UNUSED_PARAM(customData);
+    UNUSED_PARAM(pDataChannel);
+
+
+    UINT64 now = GETTIME();
+
+
+    if (isBinary) {
+        //DLOGI("DataChannel Binary Message. Size %d\n", pMessageLen);
+        
+        if(pMessageLen > 8)
+        {
+
+            // printf("_byte0 = %016lx\n", (UINT64) pMessage[0]);
+            // printf("_byte1 = %016lx\n", pMessage[1]);
+            // printf("_byte2 = %016lx\n", pMessage[2]);
+            // printf("_byte3 = %016lx\n", pMessage[3]);
+            // printf("_byte4 = %016lx\n", pMessage[4]);
+            // printf("_byte5 = %016lx\n", pMessage[5]);
+            // printf("_byte6 = %016lx\n", pMessage[6]);
+            // printf("_byte7 = %016lx\n", pMessage[7]);
+
+            // UINT64 timestamp0 =  0x00000000000000ff & (((UINT64) pMessage[0]) << (8*0));
+            // UINT64 timestamp1 = (UINT64) 0x00000000ffffffff & (pMessage[1] << (8*1));
+            // UINT64 timestamp2 = (UINT64) 0x00000000ffffffff & (pMessage[2] << (8*2));
+            // UINT64 timestamp3 = (UINT64) 0x00000000ffffffff & (pMessage[3] << (8*3));
+            // UINT64 timestamp4 = (UINT64) 0x00000000ffffffff & (pMessage[4] << (8*4));
+            // UINT64 timestamp5 = (UINT64) 0x00000000ffffffff & (pMessage[5] << (8*5));
+            // UINT64 timestamp6 = (UINT64) 0x00000000ffffffff & (pMessage[6] << (8*6));
+            // UINT64 timestamp7 = (UINT64) 0x00000000ffffffff & (pMessage[7] << (8*7));
+
+            UINT64 timestamp0 = (((UINT64) pMessage[0]) << (8*0));
+            UINT64 timestamp1 = (((UINT64) pMessage[1]) << (8*1));
+            UINT64 timestamp2 = (((UINT64) pMessage[2]) << (8*2));
+            UINT64 timestamp3 = (((UINT64) pMessage[3]) << (8*3));
+            UINT64 timestamp4 = (((UINT64) pMessage[4]) << (8*4));
+            UINT64 timestamp5 = (((UINT64) pMessage[5]) << (8*5));
+            UINT64 timestamp6 = (((UINT64) pMessage[6]) << (8*6));
+            UINT64 timestamp7 = (((UINT64) pMessage[7]) << (8*7));
+
+            UINT64 timestamp = timestamp0
+                                |timestamp1
+                                |timestamp2
+                                |timestamp3
+                                |timestamp4
+                                |timestamp5
+                                |timestamp6
+                                |timestamp7;
+
+            // printf("byte0 = %016lx\n", timestamp0);
+            // printf("byte1 = %016lx\n", timestamp1);
+            // printf("byte2 = %016lx\n", timestamp2);
+            // printf("byte3 = %016lx\n", timestamp3);
+            // printf("byte4 = %016lx\n", timestamp4);
+            // printf("byte5 = %016lx\n", timestamp5);
+            // printf("byte6 = %016lx\n", timestamp6);
+            // printf("byte7 = %016lx\n", timestamp7);
+
+            // printf("timestamp = %lx\n", timestamp);
+            //printf("timestamp = %ld\n", timestamp);
+
+            
+
+            printf("%d ms\n", (now - timestamp)/HUNDREDS_OF_NANOS_IN_A_MILLISECOND);
+
+        }
+
+
+
+    } else {
+        DLOGI("DataChannel String Message: %.*s\n", pMessageLen, pMessage);
+    }
+}
+
+// onOpen callback for the onOpen event of a viewer created data channel
+VOID dataChannelOnOpenCallback(UINT64 customData, PRtcDataChannel pDataChannel) {
+    STATUS retStatus = STATUS_SUCCESS;
+    DLOGI("New DataChannel has been opened %s \n", pDataChannel->name);
+    dataChannelOnMessage(pDataChannel, customData, dataChannelOnMessageCallback);
+    ATOMIC_INCREMENT((PSIZE_T) customData);
+    // Sending first message to the master over the data channel
+    retStatus = dataChannelSend(pDataChannel, FALSE, (PBYTE) VIEWER_DATA_CHANNEL_MESSAGE, STRLEN(VIEWER_DATA_CHANNEL_MESSAGE));
+    if(retStatus != STATUS_SUCCESS){
+        DLOGI("[KVS Viewer] dataChannelSend(): operation returned status code: 0x%08x \n", retStatus);
+    }
+}
+
 INT32 main(INT32 argc, CHAR* argv[])
 {
     STATUS retStatus = STATUS_SUCCESS;
@@ -81,13 +171,11 @@ INT32 main(INT32 argc, CHAR* argv[])
     // Initialize streaming session
     MUTEX_LOCK(pSampleConfiguration->sampleConfigurationObjLock);
     locked = TRUE;
-
     retStatus = createSampleStreamingSession(pSampleConfiguration, NULL, FALSE, &pSampleStreamingSession);
     if (retStatus != STATUS_SUCCESS) {
         printf("[KVS Viewer] createSampleStreamingSession(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
     }
-
     printf("[KVS Viewer] Creating streaming session...completed\n");
     pSampleConfiguration->sampleStreamingSessionList[pSampleConfiguration->streamingSessionCount++] = pSampleStreamingSession;
 
@@ -164,6 +252,28 @@ INT32 main(INT32 argc, CHAR* argv[])
         printf("[KVS Viewer] signalingClientSendMessageSync(): operation returned status code: 0x%08x \n", retStatus);
         goto CleanUp;
     }
+
+#ifdef ENABLE_DATA_CHANNEL
+    PRtcDataChannel pDataChannel = NULL;
+    PRtcPeerConnection pPeerConnection = pSampleStreamingSession->pPeerConnection;
+    SIZE_T datachannelLocalOpenCount = 0;
+
+    // Creating a new datachannel on the peer connection of the existing sample streaming session
+    retStatus = createDataChannel(pPeerConnection, pChannelName, NULL, &pDataChannel);
+    if(retStatus != STATUS_SUCCESS) {
+        printf("[KVS Viewer] createDataChannel(): operation returned status code: 0x%08x \n", retStatus);
+        goto CleanUp;
+    }
+    printf("[KVS Viewer] Creating data channel...completed\n");
+
+    // Setting a callback for when the data channel is open
+    retStatus = dataChannelOnOpen(pDataChannel, (UINT64) &datachannelLocalOpenCount, dataChannelOnOpenCallback);
+    if(retStatus != STATUS_SUCCESS) {
+        printf("[KVS Viewer] dataChannelOnOpen(): operation returned status code: 0x%08x \n", retStatus);
+        goto CleanUp;
+    }
+    printf("[KVS Viewer] Data Channel open now...\n");
+#endif
 
     // Block until interrupted
     while (!ATOMIC_LOAD_BOOL(&pSampleConfiguration->interrupted) && !ATOMIC_LOAD_BOOL(&pSampleStreamingSession->terminateFlag)) {

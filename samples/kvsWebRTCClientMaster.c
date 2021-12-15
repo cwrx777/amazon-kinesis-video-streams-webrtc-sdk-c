@@ -13,7 +13,12 @@ INT32 main(INT32 argc, CHAR* argv[])
     PCHAR pChannelName;
     signalingClientMetrics.version = 0;
 
+
     SET_INSTRUMENTED_ALLOCATORS();
+
+
+
+
 
 #ifndef _WIN32
     signal(SIGINT, sigintHandler);
@@ -49,7 +54,7 @@ INT32 main(INT32 argc, CHAR* argv[])
     pSampleConfiguration->audioSource = sendAudioPackets;
     pSampleConfiguration->videoSource = sendVideoPackets;
     pSampleConfiguration->receiveAudioVideoSource = sampleReceiveVideoFrame;
-    pSampleConfiguration->onDataChannel = onDataChannel;
+    pSampleConfiguration->onDataChannel = CW_onDataChannel;
     pSampleConfiguration->mediaType = SAMPLE_STREAMING_AUDIO_VIDEO;
     printf("[KVS Master] Finished setting audio and video handlers\n");
 
@@ -362,3 +367,18 @@ CleanUp:
 
     return (PVOID) (ULONG_PTR) retStatus;
 }
+
+
+
+
+VOID CW_onDataChannel(UINT64 customData, PRtcDataChannel pRtcDataChannel)
+{
+    DLOGI("New DataChannel has been opened %s \n", pRtcDataChannel->name);
+    //TODO 
+
+    gSampleConfiguration->sampleDataChannelList[gSampleConfiguration->dataChannelCount++] = pRtcDataChannel;
+    DLOGI("New DataChannel has been added to sampleDataChannelList %s \n", pRtcDataChannel->name);
+
+
+}
+

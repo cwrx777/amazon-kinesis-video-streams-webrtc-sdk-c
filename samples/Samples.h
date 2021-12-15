@@ -46,6 +46,9 @@ extern "C" {
 #define IOT_CORE_ROLE_ALIAS          ((PCHAR) "AWS_IOT_CORE_ROLE_ALIAS")
 #define IOT_CORE_THING_NAME          ((PCHAR) "AWS_IOT_CORE_THING_NAME")
 
+#define MASTER_DATA_CHANNEL_MESSAGE "This message is from the KVS Master"
+#define VIEWER_DATA_CHANNEL_MESSAGE "This message is from the KVS Viewer"
+
 /* Uncomment the following line in order to enable IoT credentials checks in the provided samples */
 //#define IOT_CORE_ENABLE_CREDENTIALS  1
 
@@ -102,6 +105,12 @@ typedef struct {
     PSampleStreamingSession sampleStreamingSessionList[DEFAULT_MAX_CONCURRENT_STREAMING_SESSION];
     UINT32 streamingSessionCount;
     MUTEX streamingSessionListReadLock;
+
+
+      //CW
+    PRtcDataChannel sampleDataChannelList[DEFAULT_MAX_CONCURRENT_STREAMING_SESSION];
+    UINT32 dataChannelCount;
+
     UINT32 iceUriCount;
     SignalingClientCallbacks signalingClientCallbacks;
     SignalingClientInfo clientInfo;
@@ -185,6 +194,9 @@ STATUS submitPendingIceCandidate(PPendingMessageQueue, PSampleStreamingSession);
 STATUS removeExpiredMessageQueues(PStackQueue);
 STATUS getPendingMessageQueueForHash(PStackQueue, UINT64, BOOL, PPendingMessageQueue*);
 BOOL sampleFilterNetworkInterfaces(UINT64, PCHAR);
+
+
+VOID CW_onDataChannel(UINT64, PRtcDataChannel);
 
 #ifdef __cplusplus
 }
